@@ -55,6 +55,16 @@ func (m *MessageAction) Execute(a *ActionInfo) bool {
 	})
 	defer noContentTimeout.Stop()
 	msg := a.handler.sessionCache.GetMsg(*a.info.sessionId)
+	// 如果没有提示词，默认模拟ChatGPT
+	if !hasSystemRole(msg) {
+		msg = append(msg, openai.Messages{
+			Role: "system", Content: "You are ChatGPT, " +
+				"a large language model trained by OpenAI. " +
+				"Answer in user's language as concisely as" +
+				" possible. Knowledge cutoff: 20230601 " +
+				"Current date" + time.Now().Format("20060102"),
+		})
+	}
 	msg = append(msg, openai.Messages{
 		Role: "user", Content: a.info.qParsed,
 	})
@@ -154,4 +164,14 @@ func sendOnProcess(a *ActionInfo) (*string, error) {
 	}
 	return cardId, nil
 
+}
+
+//判断msg中的是否包含system role
+func hasSystemRole(msg []openai.Messages) bool {
+	for _, m := range msg {
+		if m.Role == "system" {
+			return true
+		}
+	}
+	return false
 }
