@@ -36,7 +36,15 @@ func (m *MessageAction) Execute(a *ActionInfo) bool {
 	//log.Println(s)
 	//return false
 
-	cardId, err2 := sendOnProcess(a)
+	//if new topic
+	var ifNewTopic bool
+	if len(msg) <= 3 {
+		ifNewTopic = true
+	} else {
+		ifNewTopic = false
+	}
+	
+	cardId, err2 := sendOnProcess(a, ifNewTopic)
 	if err2 != nil {
 		return false
 	}
@@ -47,7 +55,7 @@ func (m *MessageAction) Execute(a *ActionInfo) bool {
 	noContentTimeout := time.AfterFunc(10*time.Second, func() {
 		pp.Println("no content timeout")
 		close(done)
-		err := updateFinalCard(*a.ctx, "请求超时", cardId)
+		err := updateFinalCard(*a.ctx, "请求超时", cardId, ifNewTopic)
 		if err != nil {
 			return
 		}
@@ -71,7 +79,7 @@ func (m *MessageAction) Execute(a *ActionInfo) bool {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				err := updateFinalCard(*a.ctx, "聊天失败", cardId)
+				err := updateFinalCard(*a.ctx, "聊天失败", cardId, ifNewTopic)
 				if err != nil {
 					printErrorMessage(a, msg, err)
 					return
@@ -82,7 +90,7 @@ func (m *MessageAction) Execute(a *ActionInfo) bool {
 		//log.Printf("UserId: %s , Request: %s", a.info.userId, msg)
 
 		if err := m.chatgpt.StreamChat(*a.ctx, msg, chatResponseStream); err != nil {
-			err := updateFinalCard(*a.ctx, "聊天失败", cardId)
+			err := updateFinalCard(*a.ctx, "聊天失败", cardId, ifNewTopic)
 			if err != nil {
 				printErrorMessage(a, msg, err)
 				return
@@ -119,7 +127,7 @@ func (m *MessageAction) Execute(a *ActionInfo) bool {
 			answer += res
 			//pp.Println("answer", answer)
 		case <-done: // 添加 done 信号的处理
-			err := updateFinalCard(*a.ctx, answer, cardId)
+			err := updateFinalCard(*a.ctx, answer, cardId, ifNewTopic)
 			if err != nil {
 				printErrorMessage(a, msg, err)
 				return false
@@ -156,9 +164,9 @@ func printErrorMessage(a *ActionInfo, msg []openai.Messages, err error) {
 	log.Printf("Failed request: UserId: %s , Request: %s , Err: %s", a.info.userId, msg, err)
 }
 
-func sendOnProcess(a *ActionInfo) (*string, error) {
+func sendOnProcess(a *ActionInfo, ifNewTopic bool) (*string, error) {
 	// send 正在处理中
-	cardId, err := sendOnProcessCard(*a.ctx, a.info.sessionId, a.info.msgId)
+	cardId, err := sendOnProcessCard(*a.ctx, a.info.sessionId, a.info.msgId, ifNewTopic)
 	if err != nil {
 		return nil, err
 	}
